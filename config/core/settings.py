@@ -9,11 +9,21 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
 from pathlib import Path
+import environ
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+# Инициализация environ
+env = environ.Env()
+
+# Путь к .env файлу
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+env_file = BASE_DIR / '.env'
+
+if env_file.exists():
+    env.read_env(env_file)
+else:
+    print(f"Warning: .env file not found at {env_file}")
 
 
 # Quick-start development settings - unsuitable for production
@@ -39,6 +49,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'crypto_pulse',
+
 ]
 
 MIDDLEWARE = [
@@ -49,6 +60,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+
+
 ]
 
 ROOT_URLCONF = 'config.core.urls'
@@ -56,7 +70,7 @@ ROOT_URLCONF = 'config.core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -124,3 +138,62 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATIC_URL = '/static/'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'crypto_pulse': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+
+    },
+}
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# Защита от атак методом перебора
+AX_LOGIN_ATTEMPTS_LIMIT = 5
+AX_COOLOFF_TIME = 1  # в часах
+AX_LOCKOUT_TEMPLATE = 'account/lockout.html'
+
+# Защита сессии
+SESSION_COOKIE_AGE = 1209600  # 2 недели (в секундах)
+SESSION_COOKIE_SECURE = True  # Для HTTPS
+CSRF_COOKIE_SECURE = True
+
+
+env = environ.Env()
+env_path = Path(__file__).resolve().parent / '.env'
+if env_file.exists():
+    env.read_env(env_file)
+else:
+    print(f"Warning: .env file not found at {env_file}")
+
+BINANCE_API_KEY = env('BINANCE_API_KEY')
+BINANCE_API_SECRET = env('BINANCE_API_SECRET')
+
+SYMBOLS = env('SYMBOLS').split(',')
+TELEGRAM_BOT_TOKEN = env('TELEGRAM_BOT_TOKEN')
+TELEGRAM_CHAT_ID = env('TELEGRAM_CHAT_ID')
+
+
+ROOT_URLCONF = 'config.core.urls'
+
+# Настройки аутентификации
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'

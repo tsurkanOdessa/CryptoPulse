@@ -16,10 +16,37 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from crypto_pulse.controllers.home_page_controller import home_page_view
+from django.http import HttpResponse
+
+from django.contrib.auth.views import LoginView
+from crypto_pulse.controllers.home_page_controller import home_page_view, portfolio_api
+
+
+def debug_urls(request):
+    from django.urls import get_resolver
+    urls = []
+    for url_pattern in get_resolver().url_patterns:
+        urls.append(str(url_pattern.pattern))
+    return HttpResponse("<br>".join(urls))
+
 
 urlpatterns = [
-    path('grappelli/', include('grappelli.urls')),
+    # Админка
     path('admin/', admin.site.urls),
+
+    # Grappelli
+    path('grappelli/', include('grappelli.urls')),
+
+    # Кастомные URL
     path('', home_page_view, name='home'),
+    path('api/portfolio/', portfolio_api, name='portfolio_api'),
+
+    # Перенаправления для совместимости
+    #path('accounts/login/', RedirectView.as_view(url='/login/', permanent=True)),
+    #path('accounts/logout/', RedirectView.as_view(url='/logout/', permanent=True)),
+    path('login/', LoginView.as_view(template_name='auth/login.html'), name='login'),
+    path('logout/', LoginView.as_view(template_name='auth/logout.html'), name='logout'),
+    # Allauth URLs
+    #path('', include('allauth.urls')),
+
 ]

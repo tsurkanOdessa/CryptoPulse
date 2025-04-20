@@ -1,26 +1,37 @@
+import time
+
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from crypto_pulse.models.portfolio import PortfolioAsset
-from crypto_pulse.models.binance_service import BinanceService
+from crypto_pulse.models.rsi_strategy import rsi_entry_exit
 
 @login_required
 def home_page_view(request):
-    # Получаем активы текущего пользователя
     portfolio_assets = PortfolioAsset.objects.filter(
         portfolio__user=request.user
     ).select_related('asset')
-    print(f"portfolio_assets = {portfolio_assets}")
-    # Рассчитываем общую статистику
-    total_value = sum(asset.amount * asset.price for asset in portfolio_assets)
-    daily_change = 0  # Здесь можно добавить реальную логику расчета
+
+    total_value = sum(asset.current_value for asset in portfolio_assets)
+    daily_change = sum(
+        asset.change_percent * asset.current_value for asset in portfolio_assets
+    ) / total_value if total_value > 0 else 0
+
+    signals = {}
+    for asset in portfolio_assets:
+        try:
+            signals[asset.asset.full_symbol] = rsi_entry_exit(asset.asset.full_symbol)
+        except Exception as e:
+            signals[asset.asset.symbol] = f"Error: {str(e)}"
 
     context = {
         'total_value': total_value,
         'daily_change': daily_change,
-        'active_strategies': portfolio_assets.count(),
         'portfolio_assets': portfolio_assets,
+        'signals': signals,  # Исправлено: было 'signals'
+        'active_strategies': len(signals)  # Исправлено: было 'active_strategies'
     }
+
     return render(request, 'home.html', context)
 
 
@@ -31,16 +42,16 @@ def home_page_view(request):
 def portfolio_api(request):
     """API endpoint для данных портфеля"""
     try:
-        # Получаем активы пользователя
+        if not request.user.is_authenticated:
+            return JsonResponse({'status': 'error', 'message': 'Not authenticated'}, status=401)
+
         assets = PortfolioAsset.objects.filter(
             portfolio__user=request.user
         ).select_related('asset')
 
-        # Опционально: принудительное обновление данных из Binance
         if request.GET.get('force_refresh'):
-            BinanceService().update_all_assets()
+            PortfolioAsset.update_all_assets()
 
-        # Подготовка данных
         assets_data = []
         total_value = 0
         weighted_change = 0
@@ -51,24 +62,27 @@ def portfolio_api(request):
             weighted_change += asset.change_percent * current_value
 
             assets_data.append({
-                'symbol': asset.symbol,
-                'logo': asset.asset.logo.url if asset.asset.logo else None,
-                'amount': asset.amount,
-                'price': asset.price,
-                'change_percent': asset.change_percent,
-                'current_value': current_value,
+                'asset': {
+                    'symbol': asset.asset.symbol,
+                    'logo': asset.asset.logo.url if asset.asset.logo else None,
+                },
+                'amount': float(asset.amount),
+                'price': float(asset.price),
+                'change_percent': float(asset.change_percent),
+                'current_value': float(current_value),
             })
 
-        # Рассчитываем средневзвешенное изменение
-        daily_change = weighted_change / total_value if total_value > 0 else 0
+        daily_change = (weighted_change / total_value) if total_value > 0 else 0
 
         return JsonResponse({
             'status': 'success',
-            'total_value': total_value,
-            'daily_change': daily_change,
-            'assets': assets_data,
-            'assets_count': len(assets_data),
-            'last_updated': request.user.last_login.isoformat() if request.user.last_login else None
+            'data': {
+                'total_value': float(total_value),
+                'daily_change': float(daily_change),
+                'assets': assets_data,
+                'assets_count': len(assets_data),
+                'last_updated': int(time.time())
+            }
         })
 
     except Exception as e:
@@ -85,7 +99,7 @@ def portfolio_data(request):
     ).select_related('asset')
 
     # Обновляем данные из Binance
-    BinanceService().update_all_assets()
+    PortfolioAsset.update_all_assets()
 
     total_value = sum(asset.current_value for asset in assets)
     daily_change = sum(
@@ -97,7 +111,7 @@ def portfolio_data(request):
         'daily_change': daily_change,
         'assets': [
             {
-                'symbol': asset.symbol,
+                'symbol': asset.asset.symbol,
                 'logo': asset.asset.logo.url if asset.asset.logo else None,
                 'amount': asset.amount,
                 'price': asset.price,

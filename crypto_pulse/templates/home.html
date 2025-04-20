@@ -73,6 +73,14 @@
       </div>
     </div>
 
+    <!--<h2>Сигналы стратегий</h2>
+    <ul>
+      {% for symbol, signal in signals.items %}
+        <li><strong>{{ symbol }}:</strong> {{ signal }}</li>
+      {% endfor %}
+    </ul>
+    -->
+
     <!-- Assets Table -->
     <div class="card shadow-lg mb-5">
       <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
@@ -93,12 +101,12 @@
             </thead>
             <tbody id="assets-table-body">
               {% for asset in portfolio_assets %}
-                <tr data-symbol="{{ asset.symbol }}">
+                <tr data-symbol="{{ asset.asset.symbol }}">
                   <td class="fw-bold">
                     {% if asset.asset.logo %}
-                      <img src="{{ asset.asset.logo.url }}" alt="{{ asset.symbol }}" class="crypto-logo me-2">
+                      <img src="{{ asset.asset.logo.url }}" alt="{{ asset.asset.symbol }}" class="crypto-logo me-2">
                     {% endif %}
-                    {{ asset.symbol }}
+                    {{ asset.asset.symbol }}
                   </td>
                   <td class="asset-amount">{{ asset.amount|floatformat:6 }}</td>
                   <td class="asset-price">{{ asset.price|floatformat:2 }}</td>
@@ -125,6 +133,8 @@
     </div>
   </div>
 
+  <!-- ... остальной HTML код ... -->
+
   <footer class="mt-5 py-3 bg-dark text-white">
     <div class="container text-center">
       <p class="mb-0">CryptoPulse &copy; {% now "Y" %}</p>
@@ -134,125 +144,127 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const refreshBtn = document.getElementById('refresh-btn');
-    const loadingSpinner = document.getElementById('loading-spinner');
-    let updateInterval;
-    let isAutoUpdate = false;
+    // Здесь начинается ваш JavaScript код
+    document.addEventListener('DOMContentLoaded', function() {
+        const refreshBtn = document.getElementById('refresh-btn');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        let updateInterval;
+        let isAutoUpdate = false;
 
-    // Функция для форматирования чисел
-    function formatNumber(value, decimals = 2) {
-        return parseFloat(value).toLocaleString(undefined, {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals
-        });
-    }
-
-    // Основная функция обновления данных
-    async function updateData(manualUpdate = true) {
-        try {
-            isAutoUpdate = !manualUpdate;
-            refreshBtn.disabled = true;
-            loadingSpinner.style.display = 'inline-block';
-
-            const response = await fetch('/api/portfolio/', {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                },
-                credentials: 'include'  // Важно для передачи сессионных кук
+        // Функция для форматирования чисел
+        function formatNumber(value, decimals = 2) {
+            return parseFloat(value).toLocaleString(undefined, {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
             });
+        }
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+        // Основная функция обновления данных - ВСТАВЬТЕ ЕЕ СЮДА
+        async function updateData(manualUpdate = true) {
+            try {
+                isAutoUpdate = !manualUpdate;
+                refreshBtn.disabled = true;
+                loadingSpinner.style.display = 'inline-block';
 
-            const result = await response.json();
-
-            if (result.status !== 'success') {
-                throw new Error(result.message || 'Unknown error');
-            }
-
-            const data = result.data;
-
-            // Обновляем статистику
-            document.getElementById('total-value').textContent = `$${formatNumber(data.total_value)}`;
-            document.getElementById('daily-change').textContent = `${formatNumber(data.daily_change)}%`;
-            document.getElementById('assets-count').textContent = data.assets.length;
-            document.getElementById('total-value-footer').textContent = `$${formatNumber(data.total_value)}`;
-
-            // Обновляем таблицу активов
-            const tableBody = document.getElementById('assets-table-body');
-            tableBody.innerHTML = '';
-
-            if (data.assets.length === 0) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="text-center py-4">Портфель пуст</td>
-                    </tr>
-                `;
-            } else {
-                data.assets.forEach(asset => {
-                    const changeClass = asset.change_percent > 0 ? 'positive' :
-                                      asset.change_percent < 0 ? 'negative' : '';
-                    const row = document.createElement('tr');
-                    row.dataset.symbol = asset.symbol;
-                    row.innerHTML = `
-                        <td class="fw-bold">
-                            ${asset.logo ? `<img src="${asset.logo}" alt="${asset.symbol}" class="crypto-logo me-2">` : ''}
-                            ${asset.symbol}
-                        </td>
-                        <td class="asset-amount">${formatNumber(asset.amount, 6)}</td>
-                        <td class="asset-price">$${formatNumber(asset.price)}</td>
-                        <td class="asset-change ${changeClass}">
-                            ${asset.change_percent > 0 ? '+' : ''}${formatNumber(asset.change_percent)}%
-                        </td>
-                        <td class="asset-value">$${formatNumber(asset.current_value)}</td>
-                    `;
-                    tableBody.appendChild(row);
+                const response = await fetch('/api/portfolio/?force_refresh=' + (manualUpdate ? '1' : '0'), {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include'
                 });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                // Проверка структуры ответа
+                if (result.status !== 'success' || !result.data) {
+                    throw new Error(result.message || 'Invalid response structure');
+                }
+
+                const data = result.data;
+
+                // Обновляем статистику
+                document.getElementById('total-value').textContent = `$${formatNumber(data.total_value)}`;
+                document.getElementById('daily-change').textContent = `${formatNumber(data.daily_change)}%`;
+                document.getElementById('daily-change').className = `card-text fs-2 ${data.daily_change > 0 ? 'text-success' : 'text-danger'} fw-bold`;
+                document.getElementById('assets-count').textContent = data.assets_count;
+                document.getElementById('total-value-footer').textContent = `$${formatNumber(data.total_value)}`;
+
+                // Обновляем таблицу активов
+                const tableBody = document.getElementById('assets-table-body');
+                tableBody.innerHTML = '';
+
+                if (data.assets.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center py-4">Портфель пуст</td>
+                        </tr>
+                    `;
+                } else {
+                    data.assets.forEach(asset => {
+                        const changeClass = asset.change_percent > 0 ? 'positive' :
+                                          asset.change_percent < 0 ? 'negative' : '';
+                        const row = document.createElement('tr');
+                        row.dataset.symbol = asset.asset.symbol;
+                        row.innerHTML = `
+                            <td class="fw-bold">
+                                ${asset.asset.logo ? `<img src="${asset.asset.logo}" alt="${asset.asset.symbol}" class="crypto-logo me-2">` : ''}
+                                ${asset.asset.symbol}
+                            </td>
+                            <td class="asset-amount">${formatNumber(asset.amount, 10)}</td>
+                            <td class="asset-price">$${formatNumber(asset.price, 15)}</td>
+                            <td class="asset-change ${changeClass}">
+                                ${asset.change_percent > 0 ? '+' : ''}${formatNumber(asset.change_percent)}%
+                            </td>
+                            <td class="asset-value">$${formatNumber(asset.current_value)}</td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                }
+
+                // Обновляем время последнего обновления
+                const lastUpdated = data.last_updated ? new Date(data.last_updated * 1000) : new Date();
+                document.getElementById('last-updated').textContent = lastUpdated.toLocaleTimeString();
+
+            } catch (error) {
+                console.error('Update error:', error);
+                if (manualUpdate) {
+                    alert(`Ошибка обновления: ${error.message}`);
+                }
+            } finally {
+                refreshBtn.disabled = false;
+                loadingSpinner.style.display = 'none';
             }
+        }
 
-            // Обновляем время последнего обновления
-            const lastUpdated = new Date(data.last_updated * 1000);
-            document.getElementById('last-updated').textContent = lastUpdated.toLocaleTimeString();
+        // Обработчик кнопки обновления
+        refreshBtn.addEventListener('click', () => updateData(true));
 
-        } catch (error) {
-            console.error('Update error:', error);
-            if (manualUpdate) {
-                alert(`Ошибка обновления: ${error.message}`);
+        // Функция для управления автоматическим обновлением
+        function startAutoUpdate() {
+            if (updateInterval) clearInterval(updateInterval);
+            updateInterval = setInterval(() => updateData(false), 60000);
+        }
+
+        // Запускаем при загрузке
+        updateData(false);
+        startAutoUpdate();
+
+        // Оптимизация для фоновых вкладок
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                updateData(false);
+                startAutoUpdate();
+            } else {
+                clearInterval(updateInterval);
             }
-        } finally {
-            refreshBtn.disabled = false;
-            loadingSpinner.style.display = 'none';
-        }
-    }
-
-    // Обработчик кнопки обновления
-    refreshBtn.addEventListener('click', () => updateData(true));
-
-    // Функция для управления автоматическим обновлением
-    function startAutoUpdate() {
-        if (updateInterval) clearInterval(updateInterval);
-        updateInterval = setInterval(() => updateData(false), 60000);
-    }
-
-    // Запускаем при загрузке
-    updateData(false);
-    startAutoUpdate();
-
-    // Оптимизация для фоновых вкладок
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            updateData(false);
-            startAutoUpdate();
-        } else {
-            clearInterval(updateInterval);
-        }
+        });
     });
-});
-</script>
-
+  </script>
 
 </body>
 </html>

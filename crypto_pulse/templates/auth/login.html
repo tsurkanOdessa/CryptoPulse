@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            {% if form.errors %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                Неправильное имя пользователя или пароль. Попробуйте снова.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endif %}
+
+            <div class="card shadow-lg">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="card-title text-center mb-0 py-2">Вход в CryptoPulse</h2>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post" action="{% url 'login' %}" class="needs-validation" novalidate>
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="id_login" class="form-label">
+                                <i class="bi bi-person-fill me-2"></i>Имя пользователя или Email
+                            </label>
+                            <input type="text"
+                                   name="username"
+                                   class="form-control form-control-lg"
+                                   id="id_login"
+                                   required
+                                   placeholder="Введите ваш логин или email">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_password" class="form-label">
+                                <i class="bi bi-lock-fill me-2"></i>Пароль
+                            </label>
+                            <div class="input-group">
+                                <input type="password"
+                                       name="password"
+                                       class="form-control form-control-lg"
+                                       id="id_password"
+                                       required
+                                       placeholder="Введите ваш пароль">
+                                <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <input type="hidden" name="next" value="{{ request.GET.next }}">
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg mt-3">
+                                <i class="bi bi-box-arrow-in-right me-2"></i>Войти
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const togglePassword = document.querySelector('#togglePassword');
+    const password = document.querySelector('#id_password');
+    let timer;
+
+    // Обработчик нажатия (удержания) кнопки
+    togglePassword.addEventListener('mousedown', () => {
+        password.type = 'text';
+        // Устанавливаем таймер на автоматическое скрытие через 2 секунды
+        timer = setTimeout(() => {
+            password.type = 'password';
+            togglePassword.querySelector('i').classList.replace('bi-eye-slash', 'bi-eye');
+        }, 2000);
+
+        // Меняем иконку
+        togglePassword.querySelector('i').classList.replace('bi-eye', 'bi-eye-slash');
+    });
+
+    // Обработчик отпускания кнопки
+    togglePassword.addEventListener('mouseup', () => {
+        clearTimeout(timer);
+        password.type = 'password';
+        togglePassword.querySelector('i').classList.replace('bi-eye-slash', 'bi-eye');
+    });
+
+    // Обработчик выхода курсора за пределы кнопки
+    togglePassword.addEventListener('mouseleave', () => {
+        clearTimeout(timer);
+        password.type = 'password';
+        togglePassword.querySelector('i').classList.replace('bi-eye-slash', 'bi-eye');
+    });
+});
+</script>
+{% endblock %}
